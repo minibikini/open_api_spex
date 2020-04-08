@@ -155,7 +155,8 @@ defmodule OpenApiSpex.Cast.Object do
     prop_schema = Map.get(schema_properties, key)
     path = [key | ctx.path]
 
-    with {:ok, value} <- Cast.cast(%{ctx | path: path, schema: prop_schema}) do
+    with {:ok, value} <- Cast.cast(%{ctx | path: path, schema: prop_schema}),
+         {:ok, value} <- after_cast(value, prop_schema) do
       {:ok, Map.put(output, key, value)}
     end
   end
@@ -181,4 +182,14 @@ defmodule OpenApiSpex.Cast.Object do
 
   defp to_struct(%{value: value, schema: %{"x-struct": module}}),
     do: struct(module, value)
+
+  defp after_cast(value, %{"x-struct": module} = schema) when not is_nil(module) do
+    if function_exported?(module, :after_cast, 2) do
+      module.after_cast(value, schema)
+    else
+      {:ok, value}
+    end
+  end
+
+  defp after_cast(value, _), do: {:ok, value}
 end
